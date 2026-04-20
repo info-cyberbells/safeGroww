@@ -1,0 +1,41 @@
+export interface Tick {
+    symbol: string;
+    ltp: number;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    volume?: number;
+    ch?: number;
+    chp?: number;
+    timestamp?: number;
+}
+
+export interface Candle {
+    timestamp: number;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    volume: number;
+}
+
+// Every broker MUST implement these functions
+export interface IBroker {
+    // live data
+    startLive(): Promise<void>;
+    getLatestTick(symbol?: string): Record<string, Tick> | Tick | null;
+
+    // historical data
+    fetchHistorical(
+        symbol: string,
+        resolution: string,
+        from?: string,
+        to?: string
+    ): Promise<Candle[]>;
+
+    // auth
+    generateLoginUrl(): string;
+    getAccessToken(authCode: string, password?: string): Promise<any>;
+    getUserProfile(accessToken: string): Promise<any>;
+}
