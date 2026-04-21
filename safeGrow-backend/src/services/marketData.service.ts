@@ -87,6 +87,13 @@ export const initMarketData = async () => {
     if (isValid) {
         console.log("[MarketData] Valid token found in DB. Starting WebSocket...");
         try {
+            // 💡 SEED MEMORY: Tell the XTS service about the token we found in DB
+            if (BROKER_NAME === "fivepaisa") {
+                const { setXTSToken, setXTSUserID } = await import("../brokers/fivepaisa/xts.auth.js");
+                setXTSToken(existing.accessToken);
+                setXTSUserID(existing.userID);
+            }
+
             const broker = getBroker();
             await broker.startLive();
             console.log("[MarketData] WebSocket started with existing token ✅");

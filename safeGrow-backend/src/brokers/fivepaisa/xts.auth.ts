@@ -27,3 +27,6 @@ export const loginXTS = async (appKey?: string, secretKey?: string) => {
 
 export const getXTSToken  = () => token;
 export const getXTSUserID = () => userID;
+
+export const setXTSToken  = (t: string) => { token = t; };
+export const setXTSUserID = (u: string) => { userID = u; };

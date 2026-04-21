@@ -1,0 +1,45 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  --color-primary: #0066cc;
+  --color-primary-dim: #0052a3;
+  --color-primary-container: #e7f3ff;
+  --color-background: #ffffff;
+  --color-surface: #ffffff;
+  --color-surface-container: #f8f9fa;
+  --color-surface-container-low: #f1f3f5;
+  --color-surface-container-high: #e9ecef;
+  --color-surface-container-highest: #dee2e6;
+  --color-on-surface: #111111;
+  --color-on-surface-variant: #495057;
+  --color-outline-variant: #ced4da;
+  --color-error-dim: #d9413e;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-on-surface font-sans antialiased selection:bg-primary/10 selection:text-primary;
+  }
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  display: flex;
+  width: max-content;
+  animation: marquee 30s linear infinite;
+}
