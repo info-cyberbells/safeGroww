@@ -2,16 +2,17 @@
 
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 
-export default function Hero () {
+export default function Hero() {
     const router = useRouter();
     return (
         <section className="relative min-h-screen flex flex-col items-center justify-center px-6 overflow-hidden">
             {/* Full Background Image */}
             <div className="absolute inset-0 z-0">
                 <img
-                    src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=2000&auto=format&fit=crop"
+                    src="/images/hero-image.webp"
                     alt="Stock Market Trading"
                     className="w-full h-full object-cover "
                     referrerPolicy="no-referrer"
@@ -66,10 +67,10 @@ export default function Hero () {
                 >
                     <button
                         onClick={() => router.push("/login")}
-                        className="px-10 py-4 bg-primary text-white font-bold rounded hover:bg-primary-dim transition-all duration-300 uppercase tracking-widest text-xs shadow-lg shadow-primary/30">
+                        className="px-10 py-4 bg-primary text-white font-bold rounded hover:bg-primary-dim transition-all duration-300 uppercase tracking-widest text-xs shadow-lg shadow-primary/30 cursor-pointer">
                         Get Started
                     </button>
-                  
+
                 </motion.div>
             </motion.div>
         </section>
