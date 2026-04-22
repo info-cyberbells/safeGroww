@@ -81,9 +81,9 @@ export const adminLogin = asyncHandler(async (req: Request, res: Response) => {
     // 🔒 Security: Only allow admin login if the secret matches .env
     const ADMIN_SECRET = process.env.ADMIN_SECRET || "safegrow_dev_secret";
     if (secret !== ADMIN_SECRET) {
-        return res.status(401).json({ 
-            success: false, 
-            message: "Unauthorized: Invalid admin secret" 
+        return res.status(401).json({
+            success: false,
+            message: "Unauthorized: Invalid admin secret"
         });
     }
 
@@ -168,5 +168,5 @@ export const callback = asyncHandler(async (req: Request, res: Response) => {
         { upsert: true, new: true }
     );
 
-    res.redirect("http://localhost:3000/fyers-dashboard");
+    res.redirect("http://localhost:3000/auth/callback");
 });
