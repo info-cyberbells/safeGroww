@@ -1,10 +1,15 @@
 "use client"
-
+import { useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { motion, Variants } from "framer-motion";
+import { useAppDispatch, useAppSelector } from "@/src/store/hooks";
+import { useLazyGetBrokerLoginUrlQuery } from "@/src/features/auth/authApi";
+import { setBroker, setRedirecting, setAuthError, resetAuth } from "@/src/features/auth/authSlice";
+import type { BrokerType } from "@/src/features/auth/authTypes";
 
 const brokers = [
   {
-    id: "fyers",
+    id: "fyers" as BrokerType,
     name: "Fyers",
     logo: (
       <svg width="20" height="20" viewBox="0 0 40 40" fill="none">
@@ -14,7 +19,7 @@ const brokers = [
     ),
   },
   {
-    id: "5paisa",
+    id: "5paisa" as BrokerType,
     name: "5paisa",
     logo: (
       <svg width="20" height="20" viewBox="0 0 40 40" fill="none">
@@ -23,18 +28,8 @@ const brokers = [
       </svg>
     ),
   },
-  // {
-  //   id: "zerodha",
-  //   name: "Zerodha",
-  //   logo: (
-  //     <svg width="20" height="20" viewBox="0 0 40 40" fill="none">
-  //       <rect width="40" height="40" rx="8" fill="#387ED1" />
-  //       <text x="50%" y="57%" dominantBaseline="middle" textAnchor="middle" fill="white" fontSize="19" fontWeight="800" fontFamily="Inter, sans-serif">Z</text>
-  //     </svg>
-  //   ),
-  // },
   {
-    id: "google",
+    id: "google" as BrokerType,
     name: "Google",
     logo: (
       <svg width="20" height="20" viewBox="0 0 48 48">
@@ -57,7 +52,87 @@ const fadeUp: Variants = {
   show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] } },
 };
 
-export default function Login() {
+export default function LoginPage() {
+  const dispatch = useAppDispatch();
+  const router = useRouter();
+  const popupRef = useRef<Window | null>(null);
+
+  const { selectedBroker, isRedirecting, error } = useAppSelector(
+    (state) => state.auth
+  );
+
+  const [trigger] = useLazyGetBrokerLoginUrlQuery();
+
+  // Reset Redux state on mount so page is always fresh
+  useEffect(() => {
+    dispatch(resetAuth());
+  }, [dispatch]);
+
+  // Opens a centered popup for broker login
+  // Listens for AUTH_SUCCESS message from /auth/callback
+  // If user closes popup manually → resets loading state
+  const openBrokerPopup = (url: string) => {
+    const w = 600, h = 700;
+    const left = window.screenX + (window.outerWidth - w) / 2;
+    const top = window.screenY + (window.outerHeight - h) / 2;
+
+    const popup = window.open(
+      url,
+      "broker_login",
+      `width=${w},height=${h},left=${left},top=${top},scrollbars=yes`
+    );
+
+    if (!popup) {
+      dispatch(setAuthError("Popup blocked! Please allow popups for this site."));
+      dispatch(resetAuth());
+      return;
+    }
+
+    popupRef.current = popup;
+
+    // Listen for success signal from /auth/callback page
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type === "AUTH_SUCCESS") {
+        cleanup();
+        router.push("/fyers-dashboard");
+      }
+    };
+
+    // Detect if user manually closes popup → reset state
+    const pollClosed = setInterval(() => {
+      if (popup.closed) {
+        cleanup();
+        dispatch(resetAuth());
+      }
+    }, 500);
+
+    const cleanup = () => {
+      window.removeEventListener("message", handleMessage);
+      clearInterval(pollClosed);
+      popupRef.current = null;
+    };
+
+    window.addEventListener("message", handleMessage);
+  };
+
+  const handleBrokerLogin = async (broker: BrokerType) => {
+    try {
+      dispatch(setBroker(broker));
+      dispatch(setRedirecting(true));
+
+      const result = await trigger(broker).unwrap();
+
+      if (result.success && result.url) {
+        openBrokerPopup(result.url);
+      } else {
+        dispatch(setAuthError("Login URL not returned from server."));
+      }
+    } catch (err) {
+      dispatch(setAuthError("Failed to connect. Please try again."));
+    }
+  };
+
   return (
     <div
       className="min-h-screen flex items-center justify-center px-4"
@@ -66,7 +141,7 @@ export default function Login() {
         fontFamily: "var(--font-sans)",
       }}
     >
-      {/* Subtle top glow using primary color */}
+      {/* Background glow */}
       <div
         className="fixed inset-0 pointer-events-none"
         style={{
@@ -78,7 +153,7 @@ export default function Login() {
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] as const }}
         className="w-full max-w-[380px] relative z-10"
       >
         {/* Card */}
@@ -87,11 +162,10 @@ export default function Login() {
           style={{
             backgroundColor: "var(--color-surface)",
             border: "1px solid var(--color-outline-variant)",
-            boxShadow:
-              "0 1px 3px rgba(0,0,0,0.05), 0 4px 16px rgba(0,0,0,0.06)",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.05), 0 4px 16px rgba(0,0,0,0.06)",
           }}
         >
-          {/* Brand header */}
+          {/* Brand */}
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -107,126 +181,122 @@ export default function Login() {
               }}
             >
               <svg width="20" height="20" viewBox="0 0 18 18" fill="none">
-                <path
-                  d="M9 2L15.5 6V12L9 16L2.5 12V6L9 2Z"
-                  stroke="white"
-                  strokeWidth="1.5"
-                  fill="none"
-                />
-                <path
-                  d="M9 5L12.5 7V11L9 13L5.5 11V7L9 5Z"
-                  fill="white"
-                  fillOpacity="0.55"
-                />
+                <path d="M9 2L15.5 6V12L9 16L2.5 12V6L9 2Z" stroke="white" strokeWidth="1.5" fill="none" />
+                <path d="M9 5L12.5 7V11L9 13L5.5 11V7L9 5Z" fill="white" fillOpacity="0.55" />
               </svg>
             </div>
-
-            <h1
-              className="text-xl font-bold tracking-tight"
-              style={{ color: "var(--color-on-surface)" }}
-            >
+            <h1 className="text-xl font-bold tracking-tight" style={{ color: "var(--color-on-surface)" }}>
               SafeGrow
             </h1>
-            <p
-              className="text-sm mt-1 text-center"
-              style={{ color: "var(--color-on-surface-variant)" }}
-            >
+            <p className="text-sm mt-1 text-center" style={{ color: "var(--color-on-surface-variant)" }}>
               Sign in to your trading dashboard
             </p>
           </motion.div>
 
-          {/* Divider label */}
+          {/* Divider */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.22 }}
             className="flex items-center gap-3 mb-4"
           >
-            <div
-              className="flex-1 h-px"
-              style={{ backgroundColor: "var(--color-outline-variant)" }}
-            />
-            <span
-              className="text-xs font-medium tracking-widest uppercase whitespace-nowrap"
-              style={{ color: "var(--color-on-surface-variant)" }}
-            >
+            <div className="flex-1 h-px" style={{ backgroundColor: "var(--color-outline-variant)" }} />
+            <span className="text-xs font-medium tracking-widest uppercase whitespace-nowrap"
+              style={{ color: "var(--color-on-surface-variant)" }}>
               Continue with
             </span>
-            <div
-              className="flex-1 h-px"
-              style={{ backgroundColor: "var(--color-outline-variant)" }}
-            />
+            <div className="flex-1 h-px" style={{ backgroundColor: "var(--color-outline-variant)" }} />
           </motion.div>
 
-          {/* Login buttons */}
-          <motion.div
-            variants={stagger}
-            initial="hidden"
-            animate="show"
-            className="flex flex-col gap-2.5"
-          >
-            {brokers.map((broker) => (
-              <motion.button
-                key={broker.id}
-                variants={fadeUp}
-                whileHover={{ scale: 1.012 }}
-                whileTap={{ scale: 0.988 }}
-                onClick={() => console.log(`Login with ${broker.name}`)}
-                className="w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-left group"
-                style={{
-                  backgroundColor: "var(--color-surface-container)",
-                  border: "1px solid var(--color-outline-variant)",
-                  color: "var(--color-on-surface)",
-                  fontFamily: "var(--font-sans)",
-                  cursor: "pointer",
-                  transition: "background-color 0.15s, border-color 0.15s",
-                }}
-                onMouseEnter={(e) => {
-                  const el = e.currentTarget as HTMLButtonElement;
-                  el.style.backgroundColor = "var(--color-primary-container)";
-                  el.style.borderColor = "var(--color-primary)";
-                }}
-                onMouseLeave={(e) => {
-                  const el = e.currentTarget as HTMLButtonElement;
-                  el.style.backgroundColor = "var(--color-surface-container)";
-                  el.style.borderColor = "var(--color-outline-variant)";
-                }}
-              >
-                {/* Logo container */}
-                <div
-                  className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg"
-                  style={{ backgroundColor: "var(--color-surface)" }}
-                >
-                  {broker.logo}
-                </div>
+          {/* Error message */}
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-4 px-4 py-2.5 rounded-lg text-sm"
+              style={{
+                backgroundColor: "color-mix(in srgb, var(--color-error-dim) 10%, transparent)",
+                border: "1px solid color-mix(in srgb, var(--color-error-dim) 30%, transparent)",
+                color: "var(--color-error-dim)",
+              }}
+            >
+              {error}
+            </motion.div>
+          )}
 
-                <span className="flex-1 text-sm font-medium">
-                  Continue with {broker.name}
-                </span>
+          {/* Broker buttons */}
+          <motion.div variants={stagger} initial="hidden" animate="show" className="flex flex-col gap-2.5">
+            {brokers.map((broker) => {
+              const isThisLoading = isRedirecting && selectedBroker === broker.id;
 
-                {/* Arrow */}
-                <svg
-                  width="13"
-                  height="13"
-                  viewBox="0 0 16 16"
-                  fill="none"
+              return (
+                <motion.button
+                  key={broker.id}
+                  variants={fadeUp}
+                  whileHover={!isRedirecting ? { scale: 1.012 } : {}}
+                  whileTap={!isRedirecting ? { scale: 0.988 } : {}}
+                  onClick={() => !isRedirecting && handleBrokerLogin(broker.id)}
+                  disabled={isRedirecting}
+                  className="w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-left group"
                   style={{
-                    color: "var(--color-on-surface-variant)",
-                    opacity: 0.35,
-                    transition: "opacity 0.15s, transform 0.15s",
+                    backgroundColor: isThisLoading
+                      ? "var(--color-primary-container)"
+                      : "var(--color-surface-container)",
+                    border: `1px solid ${isThisLoading ? "var(--color-primary)" : "var(--color-outline-variant)"}`,
+                    color: "var(--color-on-surface)",
+                    fontFamily: "var(--font-sans)",
+                    cursor: isRedirecting ? "not-allowed" : "pointer",
+                    opacity: isRedirecting && !isThisLoading ? 0.5 : 1,
+                    transition: "background-color 0.15s, border-color 0.15s, opacity 0.15s",
                   }}
-                  className="group-hover:opacity-70 group-hover:translate-x-0.5"
+                  onMouseEnter={(e) => {
+                    if (isRedirecting) return;
+                    const el = e.currentTarget as HTMLButtonElement;
+                    el.style.backgroundColor = "var(--color-primary-container)";
+                    el.style.borderColor = "var(--color-primary)";
+                  }}
+                  onMouseLeave={(e) => {
+                    if (isThisLoading) return;
+                    const el = e.currentTarget as HTMLButtonElement;
+                    el.style.backgroundColor = "var(--color-surface-container)";
+                    el.style.borderColor = "var(--color-outline-variant)";
+                  }}
                 >
-                  <path
-                    d="M5 3l6 5-6 5"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </motion.button>
-            ))}
+                  {/* Logo */}
+                  <div
+                    className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg"
+                    style={{ backgroundColor: "var(--color-surface)" }}
+                  >
+                    {broker.logo}
+                  </div>
+
+                  <span className="flex-1 text-sm font-medium">
+                    Continue with {broker.name}
+                  </span>
+
+                  {/* Spinner or arrow */}
+                  {isThisLoading ? (
+                    <svg
+                      className="animate-spin"
+                      width="14" height="14" viewBox="0 0 24 24" fill="none"
+                      style={{ color: "var(--color-primary)" }}
+                    >
+                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.25" />
+                      <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                    </svg>
+                  ) : (
+                    <svg
+                      width="13" height="13" viewBox="0 0 16 16" fill="none"
+                      style={{ color: "var(--color-on-surface-variant)", opacity: 0.35 }}
+                      className="group-hover:opacity-70 group-hover:translate-x-0.5 transition-all duration-150"
+                    >
+                      <path d="M5 3l6 5-6 5" stroke="currentColor" strokeWidth="1.8"
+                        strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
+                </motion.button>
+              );
+            })}
           </motion.div>
 
           {/* Terms */}
@@ -238,23 +308,17 @@ export default function Login() {
             style={{ color: "var(--color-on-surface-variant)" }}
           >
             By continuing, you agree to our{" "}
-            <button
-              className="font-medium"
-              style={{ color: "var(--color-primary)", background: "none", border: "none", cursor: "pointer" }}
-            >
+            <button className="font-medium" style={{ color: "var(--color-primary)", background: "none", border: "none", cursor: "pointer" }}>
               Terms
             </button>{" "}
             &{" "}
-            <button
-              className="font-medium"
-              style={{ color: "var(--color-primary)", background: "none", border: "none", cursor: "pointer" }}
-            >
+            <button className="font-medium" style={{ color: "var(--color-primary)", background: "none", border: "none", cursor: "pointer" }}>
               Privacy Policy
             </button>
           </motion.p>
         </div>
 
-        {/* Sign up footer */}
+        {/* Sign up */}
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -263,10 +327,7 @@ export default function Login() {
           style={{ color: "var(--color-on-surface-variant)" }}
         >
           New to SafeGrow?{" "}
-          <button
-            className="font-semibold"
-            style={{ color: "var(--color-primary)", background: "none", border: "none", cursor: "pointer" }}
-          >
+          <button className="font-semibold" style={{ color: "var(--color-primary)", background: "none", border: "none", cursor: "pointer" }}>
             Create account
           </button>
         </motion.p>
