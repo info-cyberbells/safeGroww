@@ -52,38 +52,45 @@ const menu: Record<Role, MenuItem[]> = {
     // Trading Core
     {
       name: "Positions",
-      path: "/positions",
+      path: "#/positions",
       icon: <Briefcase size={18} />,
     },
+
+    {
+      name: "Markets",
+      path: "/markets",
+      icon: <LineChart size={18} />,
+    },
+
     {
       name: "Trade History",
-      path: "/trades",
+      path: "#/trades",
       icon: <Activity size={18} />,
     },
 
     // Algo / Automation
     {
       name: "Strategies",
-      path: "/strategies",
+      path: "#/strategies",
       icon: <Cpu size={18} />,
     },
 
     // Funds & Reports
     {
       name: "Funds",
-      path: "/funds",
+      path: "#/funds",
       icon: <Wallet size={18} />,
     },
     {
       name: "Analytics",
-      path: "/analytics",
+      path: "#/analytics",
       icon: <BarChart2 size={18} />,
     },
 
     // Utilities
     {
       name: "Settings",
-      path: "/settings",
+      path: "#/settings",
       icon: <Settings size={18} />,
     },
   ],
@@ -214,10 +221,9 @@ export default function Sidebar({ role, onNavigate }: Props) {
             className={`
               flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm 
               transition-all duration-150
-              ${
-                isActive
-                  ? "bg-primary-container font-medium text-primary"
-                  : "text-[#7c7e8c] font-semibold tracking-wide hover:bg-surface-container hover:text-on-surface"
+              ${isActive
+                ? "bg-primary-container font-medium text-primary"
+                : "text-[#7c7e8c] font-semibold tracking-wide hover:bg-surface-container hover:text-on-surface"
               }
             `}
           >

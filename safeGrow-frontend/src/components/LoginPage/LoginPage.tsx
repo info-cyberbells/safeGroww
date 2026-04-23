@@ -95,7 +95,7 @@ export default function LoginPage() {
       if (event.origin !== window.location.origin) return;
       if (event.data?.type === "AUTH_SUCCESS") {
         cleanup();
-        router.push("/fyers-dashboard");
+        router.push("/dashboard");
       }
     };
 
