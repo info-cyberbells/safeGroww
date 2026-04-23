@@ -2,30 +2,23 @@ import { IBroker, Candle } from "../IBroker.js";
 import { loginXTS, getXTSToken } from "./xts.auth.js";
 import { startXTSWebSocket, getXTSLatestTick } from "./xts.websocket.service.js";
 import { fetchXTSHistoricalData } from "./xts.historical.service.js";
+import { SYMBOL_TO_XTS_ID } from "./xts.mapping.js";
 
 export class FivePaisaBroker implements IBroker {
 
-    // XTS has NO browser login URL
-    // login happens via API keys directly
     generateLoginUrl(): string {
         return ""; // not applicable for XTS
     }
 
     async getAccessToken(userID: string, password?: string) {
-        // XTS login happens via loginXTS()
-        // not via auth code flow
         return loginXTS();
     }
 
     async getUserProfile(accessToken: string) {
-        // XTS doesn't have user profile endpoint
-        // return basic info
         return { name: "XTS User", token: getXTSToken() };
     }
 
     async startLive(): Promise<void> {
-        // Login already handled in auth controller before this is called
-        // Just start the WebSocket with the existing token
         await startXTSWebSocket();
     }
 
@@ -41,9 +34,16 @@ export class FivePaisaBroker implements IBroker {
         from?: string,
         to?: string
     ): Promise<Candle[]> {
-        // XTS uses instrumentID not symbol string
-        // symbol format expected: "1:22" (segment:instrumentID)
-        const [segment, instrumentID] = symbol.split(":");
+        // 1. Translate human-readable symbol (NSE:SBIN-EQ) to XTS ID (1:3045)
+        const xtsKey = SYMBOL_TO_XTS_ID[symbol] || symbol;
+
+        // 2. Split into segment and instrumentID
+        const [segment, instrumentID] = xtsKey.split(":");
+
+        if (!segment || !instrumentID) {
+            console.error(`[XTS] No ID mapping found for symbol: ${symbol}`);
+            return [];
+        }
 
         const compressionMap: Record<string, number> = {
             "1": 1,

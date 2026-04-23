@@ -1,8 +1,8 @@
 import { fyersDataSocket } from "fyers-api-v3";
 import User from "../../models/User.js";
 import SystemBroker from "../../models/SystemBroker.js";
-
 import { marketStore } from "../../services/marketStore.service.js";
+import { INSTRUMENT_CATALOGUE } from "../../config/instruments.js";
 
 export const startFyersWebSocket = async () => {
     // 1. Try to get token from SystemBroker (Primary feed)
@@ -20,14 +20,18 @@ export const startFyersWebSocket = async () => {
         return;
     }
 
-    // Correct API: getInstance(accessToken)
     const skt = fyersDataSocket.getInstance(accessToken);
 
     skt.on("connect", () => {
-        console.log("Fyers WebSocket connected");
+        console.log("Fyers WebSocket connected ✅");
         marketStore.setStatus("online");
-        skt.subscribe(["NSE:SBIN-EQ", "NSE:NIFTY50-INDEX"], false, 1);
-        skt.mode(skt.FullMode, 1); // full mode = all tick fields
+        
+        // Use the central Master Catalogue
+        const symbols = INSTRUMENT_CATALOGUE.map(item => item.symbol);
+        
+        console.log(`[Fyers WS] Subscribing to ${symbols.length} symbols...`);
+        skt.subscribe(symbols, false, 1);
+        skt.mode(skt.FullMode, 1);
     });
 
     skt.on("message", (msg: any) => {
@@ -47,7 +51,7 @@ export const startFyersWebSocket = async () => {
     });
 
     skt.connect();
-    skt.autoreconnect(); // auto-reconnects on drop
+    skt.autoreconnect();
 };
 
 export const getLatestTick = () => marketStore.getAllTicks();

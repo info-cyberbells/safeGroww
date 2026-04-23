@@ -4,6 +4,7 @@ import xtsMarketData from "./xts.instance.js";
 import { getXTSToken, getXTSUserID } from "./xts.auth.js";
 import SystemBroker from "../../models/SystemBroker.js";
 import { marketStore } from "../../services/marketStore.service.js";
+import { XTS_SYMBOL_MAP } from "./xts.mapping.js";
 
 const BASE_URL = process.env.XTS_BASE_URL
     || "https://xtsmum.5paisa.com/apibinarymarketdata";
@@ -13,11 +14,13 @@ let xtsWS: any = null;
 // ✅ subscription is a REST call, not a WS call
 const subscribeToSymbols = async () => {
     try {
+        const instruments = Object.keys(XTS_SYMBOL_MAP).map(key => {
+            const [seg, id] = key.split(":");
+            return { exchangeSegment: parseInt(seg), exchangeInstrumentID: parseInt(id) };
+        });
+
         const response = await xtsMarketData.subscription({
-            instruments: [
-                { exchangeSegment: 1, exchangeInstrumentID: 3045 }, // SBIN (Stock)
-                { exchangeSegment: 1, exchangeInstrumentID: 22 },   // NIFTY (Index)
-            ],
+            instruments,
             xtsMessageCode: 1501,  // 1501 = touchline (LTP, OHLC, volume)
         });
         console.log("XTS subscription response:", response);
@@ -30,44 +33,24 @@ export const startXTSWebSocket = async () => {
     let token = getXTSToken();
     let userID = getXTSUserID();
 
-    // 🚨 SDK PRIMING: 
-    // The MDRestAPI object (xtsMarketData) MUST be initialized 
-    // via a login call at least once per server session.
-    if (!(xtsMarketData as any).token) {
-        console.log("[XTS WS] Initializing REST client session...");
-        const { loginXTS } = await import("./xts.auth.js");
-        const session = await loginXTS();
-        token = session.token;
-        userID = session.userID;
-
-        // 💾 PERSIST TO DB: Update the token in DB
-        await SystemBroker.findOneAndUpdate(
-            { broker: "fivepaisa" },
-            {
-                accessToken: token,
-                userID: userID,
-                tokenExpiry: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24h
-                updatedAt: new Date()
-            },
-            { upsert: true }
-        );
-    }
-
-    if (!token) {
-        console.error("XTS token not found even after login attempt");
+    if (!token || !userID) {
+        console.error("[XTS] Cannot start WebSocket: No token or UserID");
         return;
     }
 
+    // ✅ Sync the REST client with the current session
+    xtsMarketData.token = token;
+    xtsMarketData.userID = userID;
+    xtsMarketData.isLoggedIn = true;
+
     xtsWS = new XtsMarketDataWS(BASE_URL);
 
-    xtsWS.onConnect(() => {
+    xtsWS.onConnect((res: any) => {
         console.log("XTS WebSocket connected ✅");
-        marketStore.setStatus("online");
     });
 
-    xtsWS.onJoined(async (data: any) => {
-        console.log("XTS joined:", data);
-
+    xtsWS.onJoined(async (res: any) => {
+        console.log("XTS WebSocket joined successfully!");
         try {
             console.log("[XTS] Attempting subscription...");
             await subscribeToSymbols();
@@ -77,53 +60,61 @@ export const startXTSWebSocket = async () => {
     });
 
     xtsWS.onXTSBinaryPacketEvent((data: any) => {
-        // Safe check for Touchline data
         if (data && data.Touchline) {
-            const key = `${data.ExchangeSegment}:${data.ExchangeInstrumentID}`;
-            const touchline = data.Touchline;
+            const xtsKey = `${data.ExchangeSegment}:${data.ExchangeInstrumentID}`;
+            const symbol = XTS_SYMBOL_MAP[xtsKey] || xtsKey;
+            const t = data.Touchline;
 
-            // XTS prices are sometimes returned as 0 if packet is just a heartbeat
-            if (touchline.LastTradedPrice !== undefined) {
-                const clean = (val: any) => (val && val > 0.0001) ? val : 0;
+            const cleanPrice = (val: any) => (val && val > 0.0001) ? val : 0;
 
-                const rawLtp = clean(touchline.LastTradedPrice) || clean(touchline.Close);
-                const ltp = (rawLtp > 1) ? rawLtp : (clean(touchline.Close) || 0);
+            // Simple Mode Detection
+            // If LastTradedPrice is 0 or garbage, use Close as LTP (Summary mode)
+            const isLive = t.LastTradedPrice && t.LastTradedPrice > 1;
+            
+            let ltp = isLive ? t.LastTradedPrice : cleanPrice(t.Close);
+            let chp = isLive ? (t.PercentChange || 0) : (t.Low || 0);
 
-                // Sanity Check: If High/Low is noise (too far from LTP), use LTP
-                const high = clean(touchline.High);
-                const low = clean(touchline.Low);
-
-                marketStore.update(key, {
-                    symbol: key,
-                    ltp: ltp,
-                    open: clean(touchline.Open) || ltp,
-                    high: (high > ltp * 0.5 && high < ltp * 1.5) ? high : ltp,
-                    low: (low > ltp * 0.5 && low < ltp * 1.5) ? low : ltp,
-                    close: clean(touchline.Close) || ltp,
-                    volume: clean(touchline.TotalTradedQuantity),
-                    change: clean(touchline.PercentChange),
+            if (ltp > 0) {
+                marketStore.update(symbol, {
+                    symbol,
+                    ltp,
+                    open: cleanPrice(t.Open) || ltp,
+                    high: cleanPrice(t.High) || ltp,
+                    low: cleanPrice(t.Low) || ltp,
+                    close: cleanPrice(t.Close) || ltp,
+                    volume: cleanPrice(t.TotalTradedQuantity),
+                    chp: chp, // Percent change
+                    change: 0,
                     timestamp: data.ExchangeTimeStamp,
                 });
             }
         }
     });
 
-
     xtsWS.onError((err: any) => {
-        console.error("XTS WS error:", err);
-        marketStore.setStatus("offline");
+        console.error("XTS WebSocket Error:", err);
     });
 
-    xtsWS.onDisconnect((reason: any) => {
-        console.log("XTS WS disconnected:", reason);
+    xtsWS.onDisconnect((res: any) => {
+        console.log("XTS WebSocket disconnected ❌");
     });
 
+    // Start connection
     xtsWS.init({
-        userID,
+        userID: userID,
+        token: token,
         publishFormat: "JSON",
-        broadcastMode: "Full",
-        token,
+        broadcastMode: "Full"
     });
 };
 
-export const getXTSLatestTick = () => marketStore.getAllTicks();
+export const getXTSLatestTick = (symbol: string) => {
+    return marketStore.getTick(symbol);
+};
+
+export const stopXTSWebSocket = () => {
+    if (xtsWS) {
+        xtsWS.logOut();
+        xtsWS = null;
+    }
+};
