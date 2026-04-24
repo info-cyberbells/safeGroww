@@ -1,4 +1,3 @@
-
 import { EventEmitter } from "events";
 import MarketCandle from "../models/MarketCandle.js";
 
@@ -17,6 +16,37 @@ class MarketStore extends EventEmitter {
 
     public getStatus() {
         return this.status;
+    }
+
+    /**
+     * Pre-populates the store with the last known prices from the database.
+     */
+    public async loadLastPrices() {
+        try {
+            console.log("[MarketStore] Pre-loading last known prices from DB...");
+            const symbols = await MarketCandle.distinct("symbol");
+            
+            for (const symbol of symbols) {
+                const lastCandle = await MarketCandle.findOne({ symbol })
+                    .sort({ timestamp: -1 });
+                
+                if (lastCandle) {
+                    this.ticks[symbol] = {
+                        symbol,
+                        ltp: lastCandle.close,
+                        open: lastCandle.open,
+                        high: lastCandle.high,
+                        low: lastCandle.low,
+                        close: lastCandle.close,
+                        volume: lastCandle.volume,
+                        lastUpdated: new Date(lastCandle.timestamp)
+                    };
+                }
+            }
+            console.log(`[MarketStore] Loaded prices for ${Object.keys(this.ticks).length} symbols.`);
+        } catch (err) {
+            console.error("[MarketStore] Failed to load last prices:", err);
+        }
     }
 
     /**
