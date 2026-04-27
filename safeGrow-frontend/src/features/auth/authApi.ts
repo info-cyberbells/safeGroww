@@ -6,6 +6,11 @@ export const authApi = createApi({
 
   baseQuery: fetchBaseQuery({
     baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL,
+    prepareHeaders: (headers) => {
+      // Cookies are handled automatically with credentials: 'include'
+      return headers;
+    },
+    credentials: "include",
   }),
 
   endpoints: (builder) => ({

@@ -1,9 +1,27 @@
 import { Request, Response } from "express";
+import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import SystemBroker from "../models/SystemBroker.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { FyersBroker } from "../brokers/fyers/index.js";
 import { FivePaisaBroker } from "../brokers/fivepaisa/index.js";
+
+const JWT_SECRET = process.env.JWT_SECRET || "safegrow_secret_key_change_me_in_production";
+
+
+const setSessionCookie = (res: Response, userId: string) => {
+    const token = jwt.sign({ id: userId }, JWT_SECRET, { expiresIn: "7d" });
+
+    console.log(`[Auth] Setting session cookie for user: ${userId}`);
+
+    res.cookie("safegrow_session", token, {
+        httpOnly: false,
+        secure: false,
+        sameSite: "lax",
+        path: "/",
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+};
 
 // factory per request — not global
 const getBrokerInstance = (brokerName: string) => {
@@ -46,7 +64,7 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
         const result = await brokerInstance.getAccessToken(userID, password);
 
         // Save session to DB
-        await User.findOneAndUpdate(
+        const user = await User.findOneAndUpdate(
             { xtsUserID: result.userID },
             {
                 broker: "fivepaisa",
@@ -57,15 +75,16 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
             { upsert: true, returnDocument: "after" }
         );
 
-        // Token saved for future order execution.
-        // Market data feed is managed by the system service.
+
+        if (user) setSessionCookie(res, user._id.toString());
 
         return res.json({
             success: true,
             message: "Login successful",
             data: {
                 userID: result.userID,
-                redirect: "/fivepaisa-dashboard"
+                token: result.token, // Still return broker token for the store if needed
+                redirect: "/dashboard"
             }
         });
     }
@@ -122,6 +141,7 @@ export const adminLogin = asyncHandler(async (req: Request, res: Response) => {
 // Checks for state=system to save to SystemBroker vs User collections
 export const callback = asyncHandler(async (req: Request, res: Response) => {
     const { auth_code, state } = req.query;
+    console.log(`[Auth Callback] Hit with code: ${auth_code?.toString().slice(0, 10)}... and state: ${state}`);
 
     if (typeof auth_code !== "string") {
         return res.status(400).json({ success: false, message: "Invalid auth_code" });
@@ -153,7 +173,7 @@ export const callback = asyncHandler(async (req: Request, res: Response) => {
 
     // Case 2: Regular User Login
     const profile = await brokerInstance.getUserProfile(tokenData.access_token);
-    await User.findOneAndUpdate(
+    const user = await User.findOneAndUpdate(
         { fyId: jwtPayload.fy_id },
         {
             broker: "fyers",
@@ -168,5 +188,10 @@ export const callback = asyncHandler(async (req: Request, res: Response) => {
         { upsert: true, returnDocument: "after" }
     );
 
-    res.redirect("http://localhost:3000/auth/callback");
+    if (user) setSessionCookie(res, user._id.toString());
+
+    // Redirect to frontend callback with the broker token as a param
+    // (This allows the frontend to save it in memory/state temporarily if needed)
+    const frontendBaseUrl = "http://localhost:3000";
+    res.redirect(`${frontendBaseUrl}/auth/callback?token=${tokenData.access_token}&broker=fyers`);
 });

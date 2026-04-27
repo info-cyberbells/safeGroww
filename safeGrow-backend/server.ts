@@ -1,6 +1,7 @@
 import "./src/config/loadEnv.js";
 import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import { createServer } from "http";
 import { Server } from "socket.io";
 
@@ -14,19 +15,28 @@ import { marketStore } from "./src/services/marketStore.service.js";
 const app = express();
 const httpServer = createServer(app);
 
+const allowedOrigins = ["http://localhost:3000", "http://127.0.0.1:3000"];
 const io = new Server(httpServer, {
     cors: {
-        origin: "http://localhost:3000",
+        origin: allowedOrigins,
         credentials: true,
         methods: ["GET", "POST"],
     },
 });
 
+
 app.use(cors({
-    origin: "http://localhost:3000",
+    origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error("Not allowed by CORS"));
+        }
+    },
     credentials: true,
 }));
 app.use(express.json());
+app.use(cookieParser());
 
 await connectDB();
 

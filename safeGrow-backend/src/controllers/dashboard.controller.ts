@@ -1,31 +1,24 @@
-import { Request, Response, NextFunction } from "express";
+import { Response } from "express";
 import { getBrokerByName } from "../brokers/index.js";
 import asyncHandler from "../utils/asyncHandler.js";
-import User from "../models/User.js";
+import { AuthRequest } from "../middleware/auth.middleware.js";
 
-export const getDashboardSummary = asyncHandler(async (req: Request, res: Response) => {
-    const { accessToken } = req.query;
+export const getDashboardSummary = asyncHandler(async (req: AuthRequest, res: Response) => {
+    const user = req.user;
+    const accessToken = req.brokerToken; 
 
-    if (!accessToken || typeof accessToken !== "string") {
-        return res.status(400).json({ success: false, message: "accessToken is required" });
-    }
-
-    // 1. Identify which broker this user belongs to by looking up their session
-    const user = await User.findOne({ accessToken });
-
-    if (!user) {
+    if (!user || !accessToken) {
         return res.status(401).json({
             success: false,
-            message: "Invalid or expired access token. Please login again."
+            message: "User session not found or broker token missing."
         });
     }
-
+    
     const brokerName = user.broker;
     console.log(`[Dashboard] Fetching data for user: ${user.name} via broker: ${brokerName.toUpperCase()}`);
 
     const broker = getBrokerByName(brokerName);
 
-    // 2. Fetch all dashboard data using the CORRECT broker instance
     const profile = await broker.getUserProfile(accessToken);
     const funds = broker.getFunds ? await broker.getFunds(accessToken) : { balance: 0 };
     const holdings = broker.getHoldings ? await broker.getHoldings(accessToken) : [];
@@ -35,14 +28,14 @@ export const getDashboardSummary = asyncHandler(async (req: Request, res: Respon
 
     res.json({
         success: true,
-        data: {
-            broker: brokerName, // Tell the UI which broker data this is
-            profile,
-            funds,
-            holdings,
-            positions,
-            orders,
-            tradebook
+        data: { 
+            broker: brokerName,
+            profile, 
+            funds, 
+            holdings, 
+            positions, 
+            orders, 
+            tradebook 
         },
     });
 });
