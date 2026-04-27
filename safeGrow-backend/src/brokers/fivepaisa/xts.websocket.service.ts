@@ -47,10 +47,12 @@ export const startXTSWebSocket = async () => {
 
     xtsWS.onConnect((res: any) => {
         console.log("XTS WebSocket connected ✅");
+        marketStore.setStatus("online");
     });
 
     xtsWS.onJoined(async (res: any) => {
         console.log("XTS WebSocket joined successfully!");
+        marketStore.setStatus("online");
         try {
             console.log("[XTS] Attempting subscription...");
             await subscribeToSymbols();
@@ -72,7 +74,7 @@ export const startXTSWebSocket = async () => {
             const isLive = t.LastTradedPrice && t.LastTradedPrice > 1;
             
             let ltp = isLive ? t.LastTradedPrice : cleanPrice(t.Close);
-            let chp = isLive ? (t.PercentChange || 0) : (t.Low || 0);
+            let chp = t.PercentChange || 0;
 
             if (ltp > 0) {
                 marketStore.update(symbol, {
@@ -93,10 +95,12 @@ export const startXTSWebSocket = async () => {
 
     xtsWS.onError((err: any) => {
         console.error("XTS WebSocket Error:", err);
+        marketStore.setStatus("offline");
     });
 
     xtsWS.onDisconnect((res: any) => {
         console.log("XTS WebSocket disconnected ❌");
+        marketStore.setStatus("offline");
     });
 
     // Start connection
@@ -108,8 +112,9 @@ export const startXTSWebSocket = async () => {
     });
 };
 
-export const getXTSLatestTick = (symbol: string) => {
-    return marketStore.getTick(symbol);
+export const getXTSLatestTick = (symbol?: string) => {
+    if (symbol) return marketStore.getTick(symbol);
+    return marketStore.getAllTicks();
 };
 
 export const stopXTSWebSocket = () => {

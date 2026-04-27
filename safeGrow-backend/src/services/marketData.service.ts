@@ -26,22 +26,37 @@ const BROKER_NAME = process.env.BROKER || "fivepaisa";
  * Called on server boot and by the daily cron job.
  */
 export const refreshMarketDataToken = async () => {
-    console.log(`[MarketData] Refreshing token for broker: ${BROKER_NAME}`);
-
-    if (BROKER_NAME !== "fivepaisa") {
-        console.warn(`[MarketData] Auto-login not supported for ${BROKER_NAME}. Please login manually via UI.`);
-        return;
-    }
+    console.log(`[MarketData] 🔄 Refreshing token for broker: ${BROKER_NAME.toUpperCase()}`);
 
     try {
-        // Login with server's own API keys (from .env)
-        await loginXTS();
+        let token = "";
+        let userID = "";
 
-        const token = getXTSToken();
-        const userID = getXTSUserID();
+        if (BROKER_NAME === "fivepaisa") {
+            await loginXTS();
+            token = getXTSToken();
+            userID = getXTSUserID();
+        } else if (BROKER_NAME === "fyers") {
+            const { automateFyersLogin } = await import("../brokers/fyers/fyers.automate.js");
+            const { getAccessToken } = await import("../brokers/fyers/fyers.auth.js");
+            
+            const authCode = await automateFyersLogin();
+            const response = await getAccessToken(authCode);
+            
+            token = response.access_token;
+            
+            // Extract userID from JWT
+            const jwtPayload = JSON.parse(
+                Buffer.from(token.split(".")[1], "base64").toString("utf-8")
+            );
+            userID = jwtPayload.fy_id;
+        } else {
+            console.warn(`[MarketData] ⚠️ Auto-login not supported for ${BROKER_NAME}. Please login manually via UI.`);
+            return;
+        }
 
         if (!token) {
-            throw new Error("[MarketData] Token is empty after login");
+            throw new Error(`[MarketData] Token is empty after ${BROKER_NAME} login`);
         }
 
         // Save/update token in DB under SystemBroker collection
@@ -56,15 +71,15 @@ export const refreshMarketDataToken = async () => {
             { upsert: true, returnDocument: "after" }
         );
 
-        console.log(`[MarketData] Token saved to DB. UserID: ${userID}`);
+        console.log(`[MarketData] ✅ Token saved to DB. UserID: ${userID}`);
 
         // Start the live WebSocket feed with the new token
         const broker = getBroker();
         await broker.startLive();
 
-        console.log("[MarketData] WebSocket market feed started ✅");
-    } catch (err) {
-        console.error("[MarketData] Failed to refresh token:", err);
+        console.log(`[MarketData] 🚀 WebSocket market feed started for ${BROKER_NAME.toUpperCase()}`);
+    } catch (err: any) {
+        console.error(`[MarketData] ❌ Failed to refresh token for ${BROKER_NAME}:`, err.message);
     }
 };
 
@@ -75,7 +90,7 @@ export const refreshMarketDataToken = async () => {
  *  3. If token expired/missing → full login + save to DB + start WebSocket
  */
 export const initMarketData = async () => {
-    console.log("[MarketData] Initializing market data service...");
+    console.log(`[MarketData] 🛠️ Initializing market data service for broker: ${BROKER_NAME.toUpperCase()}`);
 
     const existing = await SystemBroker.findOne({ broker: BROKER_NAME });
 
@@ -85,7 +100,7 @@ export const initMarketData = async () => {
         existing.tokenExpiry > new Date();
 
     if (isValid) {
-        console.log("[MarketData] Valid token found in DB. Starting WebSocket...");
+        console.log(`[MarketData] 📦 Valid token found in DB for ${BROKER_NAME}. Starting WebSocket...`);
         try {
             // 💡 SEED MEMORY: Tell the XTS service about the token we found in DB
             if (BROKER_NAME === "fivepaisa") {
@@ -96,23 +111,23 @@ export const initMarketData = async () => {
 
             const broker = getBroker();
             await broker.startLive();
-            console.log("[MarketData] WebSocket started with existing token ✅");
+            console.log(`[MarketData] ✅ WebSocket started for ${BROKER_NAME.toUpperCase()} with existing token`);
         } catch (err) {
-            console.warn("[MarketData] WebSocket start failed, doing fresh login...");
+            console.warn(`[MarketData] ⚠️ WebSocket start failed for ${BROKER_NAME}, doing fresh login...`);
             await refreshMarketDataToken();
         }
     } else {
-        console.log("[MarketData] No valid token in DB. Doing fresh login...");
+        console.log(`[MarketData] 🔑 No valid token in DB for ${BROKER_NAME}. Doing fresh login...`);
         await refreshMarketDataToken();
     }
 
     // Schedule daily token refresh at 8:55 AM (before market opens at 9:15 AM)
     cron.schedule("55 8 * * *", async () => {
-        console.log("[MarketData] Cron triggered — refreshing market data token...");
+        console.log(`[MarketData] ⏰ Cron triggered — refreshing ${BROKER_NAME} market data token...`);
         await refreshMarketDataToken();
     }, {
         timezone: "Asia/Kolkata"
     });
 
-    console.log("[MarketData] Cron scheduled: daily at 8:55 AM IST ✅");
+    console.log(`[MarketData] 📅 Daily refresh scheduled at 8:55 AM IST for ${BROKER_NAME.toUpperCase()}`);
 };

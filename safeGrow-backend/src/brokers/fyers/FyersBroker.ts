@@ -4,6 +4,7 @@ import { IBroker, Tick, Candle } from "../IBroker.js";
 import { generateLoginUrl, getAccessToken, getUserProfile } from "./fyers.auth.js";
 import { fetchHistoricalData } from "./historical.service.js";
 import { startFyersWebSocket, getLatestTick } from "./websocket.service.js";
+import { getFunds, getHoldings, getOrders, getPositions, getTradebook } from "./fyers.dashboard.js";
 
 export class FyersBroker implements IBroker {
 
@@ -39,5 +40,25 @@ export class FyersBroker implements IBroker {
 
     async getUserProfile(accessToken: string) {
         return getUserProfile(accessToken);
+    }
+
+    async getFunds(accessToken: string) {
+        return getFunds(accessToken);
+    }
+
+    async getHoldings(accessToken: string) {
+        return getHoldings(accessToken);
+    }
+
+    async getPositions(accessToken: string) {
+        return getPositions(accessToken);
+    }
+
+    async getOrders(accessToken: string) {
+        return getOrders(accessToken);
+    }
+
+    async getTradebook(accessToken: string) {
+        return getTradebook(accessToken);
     }
 }

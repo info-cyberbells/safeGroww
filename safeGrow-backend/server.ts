@@ -82,6 +82,11 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
 });
 
 const port = process.env.PORT || 5000;
+const activeBroker = process.env.BROKER || "fivepaisa";
+
 httpServer.listen(port, () => {
-    console.log(`[Server] SafeGrow backend running on port ${port} 🚀`);
+    console.log(`\n-----------------------------------------`);
+    console.log(`🚀 SafeGrow backend running on port ${port}`);
+    console.log(`🔌 Active Broker: ${activeBroker.toUpperCase()}`);
+    console.log(`-----------------------------------------\n`);
 });

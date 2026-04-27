@@ -54,7 +54,7 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
                 xtsUserID: result.userID,
                 tokenExpiry: new Date(Date.now() + 24 * 60 * 60 * 1000),
             },
-            { upsert: true, new: true }
+            { upsert: true, returnDocument: "after" }
         );
 
         // Token saved for future order execution.
@@ -144,7 +144,7 @@ export const callback = asyncHandler(async (req: Request, res: Response) => {
                 userID: jwtPayload.fy_id,
                 tokenExpiry: new Date(Date.now() + 24 * 60 * 60 * 1000),
             },
-            { upsert: true }
+            { upsert: true, returnDocument: "after" }
         );
 
         await brokerInstance.startLive();
@@ -165,7 +165,7 @@ export const callback = asyncHandler(async (req: Request, res: Response) => {
             pan: profile.PAN,
             tokenExpiry: new Date(Date.now() + 24 * 60 * 60 * 1000),
         },
-        { upsert: true, new: true }
+        { upsert: true, returnDocument: "after" }
     );
 
     res.redirect("http://localhost:3000/auth/callback");

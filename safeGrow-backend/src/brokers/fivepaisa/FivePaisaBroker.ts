@@ -18,14 +18,32 @@ export class FivePaisaBroker implements IBroker {
         return { name: "XTS User", token: getXTSToken() };
     }
 
+    async getFunds(accessToken: string) {
+        return { balance: 0, margin: 0 };
+    }
+
+    async getHoldings(accessToken: string) {
+        return [];
+    }
+
+    async getPositions(accessToken: string) {
+        return [];
+    }
+
+    async getOrders(accessToken: string) {
+        return [];
+    }
+
+    async getTradebook(accessToken: string) {
+        return [];
+    }
+
     async startLive(): Promise<void> {
         await startXTSWebSocket();
     }
 
     getLatestTick(symbol?: string) {
-        const ticks = getXTSLatestTick();
-        if (symbol) return ticks[symbol] ?? null;
-        return ticks;
+        return getXTSLatestTick(symbol);
     }
 
     async fetchHistorical(

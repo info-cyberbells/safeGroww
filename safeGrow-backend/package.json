@@ -20,6 +20,7 @@
     "fyers-api-v3": "^1.8.0",
     "mongoose": "^9.4.1",
     "node-cron": "^4.2.1",
+    "otplib": "^13.4.0",
     "socket.io": "^4.8.3",
     "xts-interactive-api": "^3.0.3",
     "xts-marketdata-api": "^3.0.17"

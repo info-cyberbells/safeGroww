@@ -25,4 +25,10 @@ const getBroker = (): IBroker => {
     return instance;
 };
 
+export const getBrokerByName = (name: string): IBroker => {
+    const factory = brokerMap[name];
+    if (!factory) throw new Error(`Broker "${name}" not supported`);
+    return factory();
+};
+
 export default getBroker;

@@ -38,4 +38,9 @@ export interface IBroker {
     generateLoginUrl(): string;
     getAccessToken(authCode: string, password?: string): Promise<any>;
     getUserProfile(accessToken: string): Promise<any>;
+    getFunds(accessToken: string): Promise<any>;
+    getHoldings(accessToken: string): Promise<any>;
+    getPositions(accessToken: string): Promise<any>;
+    getOrders(accessToken: string): Promise<any>;
+    getTradebook(accessToken: string): Promise<any>;
 }
