@@ -35,11 +35,32 @@ export default function Dashboard() {
 
   // 3. Error State
   if (error) {
+    const isAuthError = (error as any)?.status === 401;
+
     return (
       <ViewLayout initialRole="user">
-        <div className="min-h-screen flex flex-col items-center justify-center gap-4 text-red-500">
-          <AlertCircle className="w-10 h-10" />
-          <p className="text-sm font-medium">Failed to fetch dashboard data. Please try logging in again.</p>
+        <div className="min-h-screen flex flex-col items-center justify-center gap-6 p-4 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center text-red-500 mb-2">
+            <AlertCircle className="w-10 h-10" />
+          </div>
+          
+          <div className="max-w-xs">
+            <h2 className="text-xl font-bold text-[#111111] mb-2">
+              {isAuthError ? "Session Expired" : "Connection Error"}
+            </h2>
+            <p className="text-sm text-[#7c7e8c] leading-relaxed">
+              {isAuthError 
+                ? "Your broker session has expired or is invalid. Please login again to sync your account data." 
+                : "We're having trouble reaching the server. Please check your connection and try again."}
+            </p>
+          </div>
+
+          <button 
+            onClick={() => window.location.href = "/login"}
+            className="px-8 py-3 bg-[#0066cc] text-white rounded-xl font-semibold text-sm shadow-lg shadow-blue-200 hover:bg-[#0052a3] transition-all active:scale-95"
+          >
+            {isAuthError ? "Login to Broker" : "Try Again"}
+          </button>
         </div>
       </ViewLayout>
     );

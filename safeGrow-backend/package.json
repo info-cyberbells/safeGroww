@@ -5,7 +5,7 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch server.ts",
+    "dev": "kill-port 5000 && tsx watch server.ts",
     "build": "tsc"
   },
   "keywords": [],
@@ -34,6 +34,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^25.6.0",
     "@types/node-cron": "^3.0.11",
+    "kill-port": "^2.0.1",
     "tsx": "^4.21.0",
     "typescript": "^6.0.2"
   }
