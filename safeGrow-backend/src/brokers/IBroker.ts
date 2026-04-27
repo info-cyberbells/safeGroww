@@ -26,13 +26,16 @@ export interface IBroker {
     startLive(): Promise<void>;
     getLatestTick(symbol?: string): Record<string, Tick> | Tick | null;
 
-    // historical data
-    fetchHistorical(
+    // market data
+    getQuotes(accessToken: string, symbols: string[]): Promise<any>;
+    getMarketDepth(accessToken: string, symbols: string[]): Promise<any>;
+    getHistory(
+        accessToken: string,
         symbol: string,
         resolution: string,
         from?: string,
         to?: string
-    ): Promise<Candle[]>;
+    ): Promise<any>;
 
     // auth
     generateLoginUrl(): string;

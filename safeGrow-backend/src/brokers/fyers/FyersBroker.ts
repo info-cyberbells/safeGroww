@@ -19,13 +19,24 @@ export class FyersBroker implements IBroker {
         return ticks;
     }
 
-    // ── HISTORICAL ────────────────────────────────
-    async fetchHistorical(
+    // ── MARKET DATA ──────────────────────────────
+    async getQuotes(accessToken: string, symbols: string[]) {
+        const { getQuotes } = await import("./fyers.dashboard.js");
+        return getQuotes(accessToken, symbols);
+    }
+
+    async getMarketDepth(accessToken: string, symbols: string[]) {
+        const { getMarketDepth } = await import("./fyers.dashboard.js");
+        return getMarketDepth(accessToken, symbols);
+    }
+
+    async getHistory(
+        accessToken: string,
         symbol: string,
         resolution: string,
         from?: string,
         to?: string
-    ): Promise<Candle[]> {
+    ): Promise<any> {
         return fetchHistoricalData(symbol, resolution, from, to);
     }
 

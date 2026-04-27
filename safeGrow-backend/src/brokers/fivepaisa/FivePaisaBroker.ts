@@ -46,12 +46,21 @@ export class FivePaisaBroker implements IBroker {
         return getXTSLatestTick(symbol);
     }
 
-    async fetchHistorical(
+    async getQuotes(accessToken: string, symbols: string[]) {
+        return { success: false, message: "Not implemented for 5paisa yet" };
+    }
+
+    async getMarketDepth(accessToken: string, symbols: string[]) {
+        return { success: false, message: "Not implemented for 5paisa yet" };
+    }
+
+    async getHistory(
+        accessToken: string,
         symbol: string,
         resolution: string,
         from?: string,
         to?: string
-    ): Promise<Candle[]> {
+    ): Promise<any> {
         // 1. Translate human-readable symbol (NSE:SBIN-EQ) to XTS ID (1:3045)
         const xtsKey = SYMBOL_TO_XTS_ID[symbol] || symbol;
 

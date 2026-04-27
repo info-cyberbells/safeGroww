@@ -30,7 +30,7 @@ export const authMiddleware = asyncHandler(async (req: AuthRequest, res: Respons
     try {
         // 2. Verify JWT
         const decoded: any = jwt.verify(sessionToken, JWT_SECRET);
-        
+
         // 3. Find user in database
         const user = await User.findById(decoded.id);
 

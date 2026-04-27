@@ -42,3 +42,15 @@ export const getTradebook = async (accessToken: string): Promise<any> => {
     console.log("Tradebook response:", response);
     return response.tradeBook;
 };
+
+export const getQuotes = async (accessToken: string, symbols: string[]): Promise<any> => {
+    setToken(accessToken);
+    const response = await fyers.get_quotes(symbols.join(","));
+    return response;
+};
+
+export const getMarketDepth = async (accessToken: string, symbols: string[]): Promise<any> => {
+    setToken(accessToken);
+    const response = await fyers.get_market_depth(symbols.join(","));
+    return response;
+};
